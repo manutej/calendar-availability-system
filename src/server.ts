@@ -42,10 +42,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes (will be added as we build)
+// API routes
+import automationRoutes from './routes/automation';
+
+app.use('/api/automation', automationRoutes);
 // app.use('/api/calendars', calendarRoutes);
 // app.use('/api/availability', availabilityRoutes);
-// app.use('/api/automation', automationRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
