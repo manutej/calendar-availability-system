@@ -10,95 +10,156 @@ The implementation is divided into four major phases, each building upon the pre
 
 ---
 
-## Phase 1: Core Calendar Integration (Weeks 1-4)
+## Phase 1: Autonomous Email Assistant (Weeks 1-4)
 
-**Goal**: Establish basic calendar connectivity and availability checking via Google Calendar MCP integration.
+**Goal**: Deliver zero-touch email automation with Gmail MCP orchestration, Google Calendar integration, and comprehensive safety mechanisms. User receives autonomous scheduling assistant in 4 weeks, not 16.
 
-### Week 1: Foundation Setup
+**Paradigm Shift**: Email orchestration is PRIMARY (not Phase 2 add-on). Calendar is data source (not core feature).
 
-#### Day 1-2: Project Initialization
-- Initialize repository with constitutional structure
-- Set up TypeScript project with proper configuration
-- Configure ESLint, Prettier, and commit hooks
-- Set up development environment (Node.js, PostgreSQL, Redis)
-- Create initial CI/CD pipeline
-- **Deliverable**: Working development environment
+### Week 1: Email Orchestration Foundation
 
-#### Day 3-5: Database and Core Libraries
-- Implement database schema for users, calendars, and events
-- Create database migration system
-- Set up connection pooling and monitoring
-- Create core TypeScript interfaces and types
-- Implement logging and error handling libraries
-- **Deliverable**: Database ready, core libraries functional
+#### Day 1-2: Project & Database Setup
+- Initialize repository with constitutional structure (Article X: Autonomous Operation)
+- Set up TypeScript project with strict mode
+- Configure ESLint, Prettier, commit hooks
+- Create database schema: users, confidence_assessments, conversation_states, automation_audit_log
+- Set up PostgreSQL with connection pooling
+- **Deliverable**: Foundation ready for autonomous operation
 
-### Week 2: Authentication & User Management
+#### Day 3-4: Gmail MCP Integration
+- Set up Gmail MCP client with OAuth2
+- Implement email monitoring via webhooks (real-time, not polling)
+- Create email processing queue (async, non-blocking)
+- Add email thread tracking
+- Test with Gmail API playground
+- **Deliverable**: Gmail monitoring active, inbox events captured
 
-#### Day 6-8: Authentication System
-- Implement JWT-based authentication
-- Create user registration and login endpoints
-- Set up password hashing and validation
-- Implement refresh token rotation
-- Add rate limiting to auth endpoints
-- **Deliverable**: Working authentication system
+#### Day 5: NLP Intent Detection
+- Integrate Claude API (or GPT-4) for intent classification
+- Create prompt template: "Is this a scheduling request? Extract: intent, proposed times, participants"
+- Implement structured output parsing (JSON)
+- Add test cases: 20 positive examples (scheduling requests), 10 negative examples (non-scheduling)
+- Measure baseline accuracy (target >90%)
+- **Deliverable**: Intent detection functional
 
-#### Day 9-10: OAuth2 Integration
-- Implement Google OAuth2 flow
-- Create token storage and refresh mechanism
-- Add OAuth callback handling
-- Implement scope management
-- Test with Google OAuth playground
-- **Deliverable**: Google OAuth2 working end-to-end
+### Week 2: Autonomous Decision Engine
 
-### Week 3: Calendar MCP Integration
+#### Day 6-8: Confidence Scoring System
+- Implement multi-factor confidence calculation:
+  - Intent clarity (0.0-1.0): NLP classification probability
+  - Time parsing accuracy (0.0-1.0): Date extraction confidence
+  - Sender trust (0.0-1.0): Known contact vs unknown
+  - Conversation context (0.0-1.0): Part of ongoing thread vs new
+- Create composite confidence score (weighted average)
+- Add configurable threshold (default 0.85, range 0.70-0.95)
+- Implement auto-send decision logic: `if confidence >= threshold then auto_send else escalate`
+- **Deliverable**: Confidence engine working
 
-#### Day 11-13: MCP Client Implementation
-- Set up MCP client for Google Calendar
-- Implement connection initialization
-- Create calendar listing functionality
-- Add event retrieval capabilities
-- Handle MCP errors and retries
-- **Deliverable**: Basic MCP client functional
+#### Day 9-10: Conversation State Machine
+- Design state model: INITIAL → AVAILABILITY_SENT → CONFIRMED → SCHEDULED
+- Implement state transitions based on email analysis
+- Add thread-level state persistence (Redis or PostgreSQL)
+- Handle multi-turn conversations: "Tuesday works" recognized as confirmation
+- Create state cleanup on timeout (14 days) or calendar event creation
+- **Deliverable**: State machine operational
 
-#### Day 14-15: Event Synchronization
-- Implement full calendar sync
-- Add incremental sync with sync tokens
-- Create webhook subscription for real-time updates
-- Handle recurring events
-- Implement conflict detection
-- **Deliverable**: Calendar sync working
+#### Day 11: Response Generation
+- Create response templates (formal/casual/custom)
+- Implement variable substitution: `{sender_name}`, `{available_slots}`, `{user_name}`
+- Add natural language generation for available slots: "I'm free Monday 2-3pm, Wednesday 10-11am"
+- Generate calendar invite attachments (.ics files)
+- **Deliverable**: Response generation working
 
-### Week 4: Availability Engine
+### Week 3: Calendar Integration (Data Source)
 
-#### Day 16-18: Availability Calculation
-- Create availability calculation algorithm
-- Handle overlapping events
-- Implement working hours configuration
-- Add buffer time between meetings
-- Support all-day events
-- **Deliverable**: Basic availability checking
+#### Day 12-14: Google Calendar MCP Client
+- Set up Google Calendar MCP client with OAuth2
+- Implement calendar sync (events retrieval)
+- Create availability calculation algorithm:
+  - Free/busy period detection
+  - Overlapping event handling
+  - Working hours filter
+  - Buffer time between meetings (configurable, default 15min)
+- Handle time zones correctly (user TZ, event TZ, recipient TZ)
+- **Deliverable**: Calendar availability calculation working
 
-#### Day 19-20: API Endpoints & Testing
-- Create REST API for availability checking
-- Add calendar management endpoints
-- Implement comprehensive test suite
-- Performance test availability calculations
-- Document API with OpenAPI spec
-- **Deliverable**: Phase 1 complete with working APIs
+#### Day 15-16: Availability Query Service
+- Create availability query layer: `getAvailableSlots(startDate, endDate, duration)`
+- Implement conflict detection before auto-confirming
+- Add multi-calendar support (if user has >1 calendar)
+- Cache availability results (Redis, 5min TTL)
+- **Deliverable**: Calendar as reliable data source
 
-### Phase 1 Deliverables
-✅ User authentication system
-✅ Google Calendar integration via MCP
-✅ Calendar synchronization
-✅ Basic availability checking
-✅ RESTful API with documentation
-✅ 80%+ test coverage
+#### Day 17: Automated Event Creation
+- Implement calendar event creation via MCP
+- Add event details: title, start time, end time, attendees, description
+- Handle event creation failures gracefully (escalate if creation fails)
+- Verify event created successfully before sending confirmation email
+- **Deliverable**: End-to-end scheduling working
+
+### Week 4: Safety Mechanisms & Production Readiness
+
+#### Day 18-19: VIP Whitelist & Blacklist
+- Create user preference interface: `/automation/settings`
+- Implement VIP whitelist: always escalate regardless of confidence score
+- Implement blacklist: never auto-respond
+- Add preference storage (user_preferences table)
+- Create preference UI mockups/CLI commands
+- **Deliverable**: User control mechanisms implemented
+
+#### Day 20-21: Automation Audit Trail
+- Implement 100% logging: every email processed, every decision made
+- Audit log schema: email metadata, confidence score breakdown, decision rationale, calendar state snapshot
+- Create audit dashboard API: `/automation/audit` (filter by date, sender, confidence level)
+- Add export capability (CSV/JSON for compliance)
+- Implement weekly digest generation: "This week: X auto-sent, Y escalated"
+- **Deliverable**: Complete transparency achieved
+
+#### Day 22: Circuit Breaker & Rate Limiting
+- Implement circuit breaker: pause after 5 consecutive low-confidence actions (< threshold)
+- Add rate limiting: max auto-sends per hour (default 20, configurable)
+- Create kill switch: `/automation/disable` (instant shutdown)
+- Add notification on circuit breaker activation: "Automation paused due to low confidence. Review needed."
+- **Deliverable**: Safety guardrails operational
+
+#### Day 23-24: Override & Learning System
+- Implement user override capability: retract auto-sent email within 24 hours
+- Create override workflow: send correction email, update conversation state, mark audit entry
+- Add preference learning: when user overrides, analyze decision and update confidence model
+- Create feedback loop: track override rate, adjust confidence threshold if needed
+- **Deliverable**: Learning from mistakes implemented
+
+#### Day 25: Integration Testing & Documentation
+- End-to-end test: Email arrives → Detected → Confidence scored → Calendar checked → Response sent → Audit logged
+- Test failure scenarios: Low confidence escalation, VIP whitelist, circuit breaker, calendar conflict
+- Test override flow: User retracts auto-sent email, system learns
+- Update OpenAPI spec with `/automation/*` endpoints
+- Create user onboarding guide: "How to trust your scheduling assistant"
+- **Deliverable**: Phase 1 complete - Autonomous assistant operational!
+
+### Phase 1 Deliverables (REVISED)
+✅ Gmail MCP email monitoring (real-time)
+✅ NLP intent detection (Claude/GPT-4 integration)
+✅ Confidence scoring engine (4 factors, configurable threshold)
+✅ Conversation state machine (multi-turn handling)
+✅ Google Calendar availability calculation
+✅ Autonomous email sending (NO manual approval required)
+✅ Automated calendar event creation
+✅ VIP whitelist/blacklist for user control
+✅ 100% audit trail with dashboard
+✅ Circuit breaker & rate limiting
+✅ User override & learning system
+✅ 80%+ test coverage with integration tests
+
+**User Value Delivered**: Zero-touch scheduling automation in 4 weeks (not 16 weeks as previously planned)
 
 ---
 
-## Phase 2: Email Reply Capabilities (Weeks 5-8)
+## Phase 2: Multi-Calendar Intelligence & Learning (Weeks 5-8)
 
-**Goal**: Add Gmail MCP integration to detect scheduling requests and send automated availability responses.
+**Goal**: Enhance autonomous assistant with preference learning, multi-calendar support, and improved confidence scoring based on behavioral patterns.
+
+**Note**: Email automation delivered in Phase 1. Phase 2 focuses on intelligence and accuracy improvements.
 
 ### Week 5: Gmail MCP Integration
 

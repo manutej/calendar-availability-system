@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-The Calendar Availability Management System (CAMS) provides intelligent calendar integration and availability management through MCP-based Google Calendar and Gmail integrations, supplemented by web scraping capabilities for external calendar sources. The system automatically responds to availability requests, suggests optimal meeting times, and maintains synchronized availability across multiple calendar sources.
+The Calendar Availability Management System (CAMS) is an **autonomous scheduling assistant** that eliminates manual calendar coordination by monitoring email, detecting availability requests, checking calendars automatically, and sending responses without user intervention. The system operates autonomously with comprehensive safety mechanisms (confidence scoring, audit trails, user oversight) while providing zero-touch scheduling for the user. MCP-based integrations with Gmail and Google Calendar enable intelligent email orchestration with calendar data as the backend source of truth.
 
 ---
 
@@ -16,167 +16,242 @@ The Calendar Availability Management System (CAMS) provides intelligent calendar
 Create a unified availability management platform that eliminates the friction of scheduling by intelligently aggregating calendar data, understanding availability requests in natural language, and automatically coordinating meetings across multiple participants and calendar systems.
 
 ### Core Value Propositions
-1. **Unified Availability View** - Single source of truth across multiple calendars
-2. **Automated Responses** - Intelligent email replies with availability
-3. **External Calendar Integration** - Scrape and sync non-API calendars
-4. **Smart Scheduling** - ML-powered optimal time suggestions
-5. **Zero Manual Coordination** - Fully automated scheduling workflows
+1. **Zero-Touch Scheduling** - Autonomous email responses eliminate manual coordination
+2. **Intelligent Email Orchestration** - NLP-powered request detection and response generation
+3. **Confidence-Based Automation** - Safe autonomous operation with 85%+ confidence thresholds
+4. **Multi-Calendar Intelligence** - Unified availability across Google Calendar and external sources
+5. **Complete Transparency** - Comprehensive audit trails with user override capability
 
 ---
 
 ## User Stories
 
-### Phase 1: Core Calendar Integration
+### Phase 1: Autonomous Scheduling Assistant
 
-#### US1: Calendar Connection
+#### US1: Zero-Touch Email Response
+**As a** user receiving availability requests via email
+**I want** the system to automatically respond with my availability
+**So that** I never have to manually check my calendar or write scheduling emails
+
+**Acceptance Criteria**:
+- GIVEN Gmail integration is active and monitoring my inbox
+- WHEN I receive an email requesting my availability
+- THEN the system detects it as a scheduling request with ≥85% confidence
+- AND checks my calendar availability automatically
+- AND generates a natural language response with available time slots
+- AND sends the response automatically WITHOUT requiring my approval
+- AND creates an audit log entry for my review
+- AND sends me a notification: "Auto-replied to [sender] with availability"
+- AND I can override/retract the response within 24 hours
+
+**Priority**: P0 (Core Value Proposition)
+
+#### US2: Autonomous Decision-Making with Safety
+**As a** user trusting autonomous operation
+**I want** the system to make safe decisions about when to auto-send
+**So that** I maintain control while eliminating manual work
+
+**Acceptance Criteria**:
+- GIVEN an incoming scheduling request email
+- WHEN the system processes the request
+- THEN it calculates a confidence score (0.0-1.0) based on:
+  - Intent clarity (is this definitely a scheduling request?)
+  - Time parsing accuracy (did we extract dates/times correctly?)
+  - Sender trust level (known contact vs unknown)
+  - Conversation context (is this part of ongoing thread?)
+- AND if confidence ≥ user's threshold (default 0.85), auto-sends response
+- AND if confidence < threshold, escalates to user for manual handling
+- AND if sender is on VIP whitelist, always escalates (configurable)
+- AND if sender is on blacklist, never auto-responds
+- AND logs the decision rationale for transparency
+
+**Priority**: P0 (Safety Mechanism)
+
+#### US3: Communication Preference Configuration
 **As a** user
-**I want to** connect my Google Calendar
-**So that** the system can read my availability
+**I want to** configure my scheduling preferences and communication style
+**So that** autonomous responses align with my professional standards
+
+**Acceptance Criteria**:
+- GIVEN I access the preferences dashboard
+- WHEN I configure my settings
+- THEN I can set:
+  - Auto-send confidence threshold (0.70-0.95, default 0.85)
+  - Working hours and buffer times
+  - VIP whitelist (always escalate) and blacklist (never respond)
+  - Response tone (formal/casual/custom)
+  - Maximum auto-sends per day (rate limiting)
+  - Email signature for automated responses
+  - Whether to disclose automation ("Sent via scheduling assistant")
+- AND preferences are applied immediately
+- AND I can preview how responses will look
+- AND I receive confirmation of changes
+
+**Priority**: P0 (User Control)
+
+#### US4: Conversation State Management
+**As a** user engaged in multi-turn scheduling conversations
+**I want** the system to track conversation context across email threads
+**So that** follow-up messages are handled correctly
+
+**Acceptance Criteria**:
+- GIVEN an ongoing scheduling conversation (email thread)
+- WHEN I send available slots and recipient replies "Tuesday at 2pm works"
+- THEN the system recognizes this as confirmation (not new request)
+- AND checks that 2pm Tuesday is still available
+- AND auto-confirms by creating calendar event
+- AND sends confirmation email: "Great! Added to calendar. See you Tuesday at 2pm"
+- AND transitions conversation state: AVAILABILITY_SENT → CONFIRMED → SCHEDULED
+- AND if the slot is now taken, suggests alternatives automatically
+- AND maintains full conversation history in audit log
+
+**Priority**: P0 (Multi-Turn Handling)
+
+#### US5: Automation Oversight and Audit
+**As a** user delegating scheduling to automation
+**I want** complete visibility into what the system does on my behalf
+**So that** I maintain accountability and can intervene when needed
+
+**Acceptance Criteria**:
+- GIVEN the system has been running autonomously
+- WHEN I access the automation audit dashboard
+- THEN I see:
+  - List of all autonomous actions (past 90 days)
+  - For each action: email received, confidence score, decision made, response sent
+  - Filter by: date range, sender, confidence level, auto-sent vs escalated
+  - Search by keyword or sender email
+- AND I can click any action to see:
+  - Full email thread
+  - Confidence score breakdown
+  - Decision rationale
+  - Calendar availability at time of decision
+- AND I can override past actions:
+  - Send correction email
+  - Update preferences to prevent similar decisions
+  - Add sender to VIP/blacklist
+- AND I receive weekly digest: "This week I auto-responded to X emails, escalated Y"
+
+**Priority**: P0 (Transparency & Control)
+
+#### US6: Calendar Integration (Data Source)
+**As a** user
+**I want** my Google Calendar connected as the availability data source
+**So that** the autonomous assistant has accurate information
 
 **Acceptance Criteria**:
 - GIVEN I have a Google account
-- WHEN I authorize the MCP integration
-- THEN my calendar events are accessible to the system
-- AND the authorization is securely stored
-- AND I can revoke access at any time
+- WHEN I authorize the Google Calendar MCP integration
+- THEN my calendar events are synced in real-time
+- AND the system calculates my free/busy periods
+- AND considers working hours, buffer times, and preferences
+- AND handles multiple calendars if connected
+- AND I can view my calendar through the dashboard
+- AND sync status is visible ("Last synced: 2 minutes ago")
 
-#### US2: Basic Availability Check
+**Priority**: P0 (Data Foundation)
+
+### Phase 2: Multi-Calendar Intelligence & Learning
+
+#### US7: Preference Learning from Behavior
 **As a** user
-**I want to** check my availability for a specific date/time
-**So that** I know if I'm free
+**I want** the system to learn my scheduling patterns automatically
+**So that** autonomous responses improve over time without manual configuration
 
 **Acceptance Criteria**:
-- GIVEN my calendar is connected
-- WHEN I query for availability on a specific date
-- THEN I see my free/busy slots
-- AND overlapping events are detected
-- AND all-day events are considered
+- GIVEN historical calendar data and autonomous action logs
+- WHEN the system analyzes patterns over 30+ days
+- THEN it learns:
+  - Typical working hours (when meetings usually occur)
+  - Preferred meeting durations (30min vs 60min vs 90min)
+  - Buffer preferences (meetings back-to-back vs 15min gaps)
+  - Meeting type patterns ("coffee" → 30min informal, "strategy" → 90min formal)
+  - Contact prioritization (frequent contacts vs occasional)
+- AND adjusts confidence scoring based on learned patterns
+- AND suggests preference updates to user for confirmation
+- AND improves auto-send accuracy over time
 
-#### US3: Multi-Calendar View
+**Priority**: P1 (Intelligence)
+
+#### US8: Multi-Calendar Availability
 **As a** user with multiple calendars
-**I want to** see aggregate availability
-**So that** I have a complete picture
+**I want** aggregate availability across all calendar sources
+**So that** autonomous responses consider my complete schedule
 
 **Acceptance Criteria**:
-- GIVEN I have multiple calendars connected
-- WHEN I check availability
-- THEN events from all calendars are considered
+- GIVEN I have multiple Google Calendars connected
+- WHEN checking availability for autonomous response
+- THEN events from ALL calendars are considered
 - AND conflicts across calendars are detected
-- AND I can filter by specific calendars
+- AND I can set priority/weight per calendar
+- AND personal vs work calendars are handled appropriately
 
-### Phase 2: Email Integration
+**Priority**: P1 (Accuracy)
 
-#### US4: Availability Request Detection
-**As a** user receiving scheduling emails
-**I want** the system to detect availability requests
-**So that** I can respond automatically
-
-**Acceptance Criteria**:
-- GIVEN Gmail integration is active
-- WHEN I receive an email asking about availability
-- THEN the system detects it as a scheduling request
-- AND extracts proposed dates/times
-- AND identifies the requester
-
-#### US5: Automated Email Response
-**As a** user
-**I want** automatic responses with my availability
-**So that** scheduling happens without my intervention
+#### US9: Smart Conflict Resolution
+**As a** user with scheduling conflicts
+**I want** intelligent conflict detection and resolution
+**So that** autonomous responses don't create double-bookings
 
 **Acceptance Criteria**:
-- GIVEN an availability request is detected
-- WHEN the system processes the request
-- THEN it generates a response with available slots
-- AND sends it after optional user approval
-- AND tracks the conversation thread
+- GIVEN a confirmed meeting request creates a conflict
+- WHEN the conflict is detected
+- THEN the system DOES NOT auto-confirm
+- AND escalates to user: "Conflict detected: [existing event] overlaps with [new request]"
+- AND suggests alternatives: reschedule existing event or propose different times
+- AND prioritizes based on meeting importance (learned or manually set)
+- AND I can set rules: "Always prioritize meetings with [person/title pattern]"
 
-#### US6: Email Template Customization
-**As a** user
-**I want to** customize email response templates
-**So that** responses match my communication style
+**Priority**: P0 (Safety)
 
-**Acceptance Criteria**:
-- GIVEN I access template settings
-- WHEN I modify email templates
-- THEN future responses use my templates
-- AND variables are properly replaced
-- AND tone/style is preserved
+### Phase 3: External Calendar Integration
 
-### Phase 3: Web Scraping Integration
-
-#### US7: External Calendar Authentication
-**As a** user with external calendar systems
-**I want to** provide login credentials
-**So that** the system can access my external calendars
+#### US10: External Calendar Web Scraping
+**As a** user with non-Google calendars
+**I want** external calendar systems scraped automatically
+**So that** autonomous availability includes all my commitments
 
 **Acceptance Criteria**:
-- GIVEN an external calendar URL
-- WHEN I provide authentication details
-- THEN the system securely stores credentials
-- AND successfully logs into the system
-- AND maintains session state
+- GIVEN I provide external calendar URL and credentials
+- WHEN the scraping job runs (configurable schedule)
+- THEN the system logs in via Playwright
+- AND extracts calendar events
+- AND merges with Google Calendar availability
+- AND includes scraped events in autonomous decision-making
+- AND notifies me of scraping failures
 
-#### US8: Schedule Scraping
-**As a** user
-**I want** external calendars scraped regularly
-**So that** my availability stays synchronized
+**Priority**: P2 (Coverage)
 
-**Acceptance Criteria**:
-- GIVEN authenticated access to external calendar
-- WHEN the sync schedule triggers
-- THEN the system scrapes current events
-- AND parses schedule information correctly
-- AND updates my availability data
-
-#### US9: Scraping Failure Handling
-**As a** user
-**I want** notification of scraping failures
-**So that** I know when data might be stale
+#### US11: Scraping Failure Recovery
+**As a** user relying on scraped calendars
+**I want** graceful handling of scraping failures
+**So that** my availability remains accurate even when external systems are down
 
 **Acceptance Criteria**:
-- GIVEN a scraping operation fails
+- GIVEN a scraping operation fails (auth error, timeout, website down)
 - WHEN the failure is detected
-- THEN I receive a notification
-- AND the system uses cached data
-- AND retry logic is attempted
+- THEN the system uses cached data from last successful scrape
+- AND sends notification: "Unable to sync [calendar], using data from [timestamp]"
+- AND retries with exponential backoff
+- AND if cache is >24 hours old, escalates scheduling requests (don't auto-send)
 
-### Phase 4: Advanced Intelligence
+**Priority**: P2 (Resilience)
 
-#### US10: Smart Time Suggestions
-**As a** meeting organizer
-**I want** optimal meeting time suggestions
-**So that** I can minimize conflicts and maximize attendance
+### Phase 4: Advanced Optimization
 
-**Acceptance Criteria**:
-- GIVEN multiple participants' calendars
-- WHEN I request meeting suggestions
-- THEN the system analyzes all calendars
-- AND suggests times that work for most/all
-- AND considers preferences and patterns
-
-#### US11: Conflict Resolution
-**As a** user with conflicts
-**I want** intelligent conflict resolution
-**So that** important meetings are prioritized
+#### US12: Group Scheduling Intelligence
+**As a** user organizing multi-person meetings
+**I want** the system to find optimal times for groups
+**So that** autonomous responses work for group scheduling requests
 
 **Acceptance Criteria**:
-- GIVEN conflicting calendar events
-- WHEN the system detects conflicts
-- THEN it suggests resolution options
-- AND considers meeting importance
-- AND can auto-reschedule lower priority items
+- GIVEN an email: "When can you, Alice, and Bob meet next week?"
+- WHEN the system detects this is a group scheduling request
+- THEN it checks availability for all mentioned participants (if calendars accessible)
+- AND finds times that work for all/most participants
+- AND responds with: "I'm free Monday 2-3pm, Tuesday 10-11am, Wednesday 3-4pm. Let me check with Alice and Bob"
+- OR auto-coordinates if all participants use the system
 
-#### US12: Availability Patterns
-**As a** user
-**I want** my availability patterns learned
-**So that** suggestions improve over time
-
-**Acceptance Criteria**:
-- GIVEN historical calendar data
-- WHEN the system analyzes patterns
-- THEN it identifies my typical availability
-- AND suggests times matching my patterns
-- AND avoids typically busy periods
+**Priority**: P3 (Advanced)
 
 ---
 
@@ -273,6 +348,49 @@ Create a unified availability management platform that eliminates the friction o
 - Pattern analysis reports
 - Integration health monitoring
 - User behavior insights
+
+### Autonomous Operation
+
+#### FR13: Confidence Scoring Engine
+- Multi-factor confidence calculation (intent, parsing, sender trust, context)
+- Confidence score output: 0.0-1.0 for every scheduling request
+- Configurable confidence threshold (default 0.85, range 0.70-0.95)
+- Decision logic: auto-send if confidence ≥ threshold, escalate otherwise
+- VIP whitelist/blacklist overrides (always/never escalate regardless of score)
+- Confidence score breakdown for transparency (show contributing factors)
+- Historical accuracy tracking (did auto-sent responses require user correction?)
+- Continuous learning from user overrides (adjust scoring model based on feedback)
+
+#### FR14: Conversation State Machine
+- State tracking across email threads (INITIAL → AVAILABILITY_SENT → CONFIRMED → SCHEDULED)
+- Multi-turn conversation context (recognize "Tuesday at 2pm works" as confirmation, not new request)
+- Thread-level state persistence (maintain conversation history for each email thread)
+- State transition logging (audit trail of state changes)
+- Timeout handling (abandon stale conversations after 14 days)
+- Conflict detection in confirmations (check if proposed slot still available before confirming)
+- Alternative suggestion when conflicts arise post-confirmation
+- State cleanup on calendar event creation
+
+#### FR15: Preference Engine
+- User preference configuration interface (threshold, working hours, buffer, whitelists, tone)
+- Behavioral pattern learning (analyze calendar history for meeting preferences)
+- Preference suggestion system (propose learned patterns for user confirmation)
+- Real-time preference application (immediately apply changes to autonomous decisions)
+- Preference versioning (track changes over time for debugging)
+- Import/export preferences (backup and restore user settings)
+- Template-based response customization (formal/casual/custom tone)
+- Rate limiting configuration (max auto-sends per hour/day)
+
+#### FR16: Automation Audit Trail
+- 100% logging of autonomous decisions (every auto-send, escalation, clarification)
+- Audit log retention: 90 days minimum
+- Audit entry contents: email metadata, confidence score, decision rationale, calendar state
+- User override capability (retract/correct auto-sent responses within 24 hours)
+- Audit dashboard with filtering (by date, sender, confidence, decision type)
+- Search functionality (find specific email threads or senders)
+- Weekly digest generation ("This week: X auto-sent, Y escalated, Z overrides")
+- Export audit logs (CSV/JSON for compliance/analysis)
+- Learning from overrides (when user corrects, update preference engine)
 
 ---
 

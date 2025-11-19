@@ -1,7 +1,8 @@
 # Calendar Availability Management System - Constitutional Framework
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Created**: 2025-11-18
+**Last Amended**: 2025-11-18 (Article X: Autonomous Operation)
 **Status**: Active
 
 ## Preamble
@@ -122,6 +123,56 @@ Every constitution violation requires documented justification.
 |-----------|---------|---------------|----------------------|
 | Example   | V       | Reason        | Simpler approach     |
 
+### Article X: Autonomous Operation with Accountability
+Autonomous operations SHALL include comprehensive audit trails, user oversight, and safety mechanisms.
+
+**Rationale**: Sending emails on user's behalf carries high professional stakes; transparency and accountability are essential for trustworthy automation.
+
+**Implementation Requirements**:
+
+1. **Confidence Scoring**
+   - Every autonomous decision MUST calculate multi-factor confidence score (0.0-1.0)
+   - Factors: Intent clarity, time parsing accuracy, sender trust, conversation context
+   - Configurable threshold (default 0.85, range 0.70-0.95)
+   - Auto-send only if confidence ≥ threshold
+   - Below threshold → escalate to user
+
+2. **Audit Trail**
+   - 100% logging of autonomous decisions (no exceptions)
+   - Audit entry contents: email metadata, confidence scores, decision rationale, calendar state
+   - Retention: Minimum 90 days
+   - User access: Searchable, filterable audit dashboard
+   - Export capability: CSV/JSON for compliance
+
+3. **User Override**
+   - Retraction window: 24 hours for all auto-sent responses
+   - Override triggers preference learning (system adapts from corrections)
+   - VIP whitelist: Always escalate specific senders regardless of confidence
+   - Blacklist: Never auto-respond to specific senders
+   - Kill switch: Instantly disable all automation
+
+4. **Safety Mechanisms**
+   - Circuit breaker: Pause automation after 5 consecutive low-confidence actions
+   - Rate limiting: Maximum auto-sends configurable (default: 20/hour)
+   - Conflict verification: Re-check calendar availability before confirming meetings
+   - Escalation paths: High-risk decisions (VIP contacts, complex requests) always escalate
+
+5. **Transparency**
+   - Confidence scores visible in audit log
+   - Decision rationale documented ("Auto-sent because: high intent clarity, known sender, simple time parsing")
+   - Weekly digest: "This week I auto-responded to X emails, escalated Y"
+   - Optional automation disclosure in email signature ("Sent via scheduling assistant")
+
+**Constitutional Alignment**:
+- Supports Article III (Test-First): Autonomous logic requires extensive test coverage
+- Supports Article VII (Documentation-As-Code): Audit trails are executable documentation
+- Requires Article IX (Complexity Tracking): Adding 4 new core entities (ConfidenceAssessment, ConversationState, UserPreferences, AutomationAudit) violates Article V Simplicity Mandate
+
+**Article V Violation Justification**:
+| Violation | Article | Justification | Alternatives Rejected |
+|-----------|---------|---------------|----------------------|
+| +4 entities (Confidence, State, Preferences, Audit) | V (3 entity limit) | Autonomous operation is PRIMARY user value; safety mechanisms non-negotiable | Manual approval workflow (defeats zero-touch goal), Lower safety standards (unethical), Defer to Phase 4 (delays core value 16 weeks) |
+
 ---
 
 ## Operational Principles
@@ -169,6 +220,7 @@ Constitutional amendments require:
 | Date | Version | Amendment | Rationale |
 |------|---------|-----------|-----------|
 | 2025-11-18 | 1.0.0 | Initial Constitution | System inception |
+| 2025-11-18 | 1.1.0 | Added Article X: Autonomous Operation with Accountability | Paradigm shift from manual approval workflow to autonomous scheduling assistant requires constitutional governance for safety, transparency, and user control |
 
 ---
 
