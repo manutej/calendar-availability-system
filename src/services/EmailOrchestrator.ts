@@ -3,28 +3,54 @@
 
 import { createLogger } from '../utils/logger';
 import { ConfidenceScorer } from './ConfidenceScorer';
+import { NLPIntentClassifier } from './NLPIntentClassifier';
+import { ConversationStateManager } from './ConversationStateManager';
+import { AvailabilityService } from './AvailabilityService';
+import { ResponseGenerator } from './ResponseGenerator';
+import { AutomationAuditLogger } from './AutomationAuditLogger';
+import { UserPreferencesManager } from './UserPreferencesManager';
+import { CircuitBreaker } from './CircuitBreaker';
+import { GmailMCPClient } from './GmailMCPClient';
+import { GoogleCalendarMCP } from './GoogleCalendarMCP';
 import {
   EmailClassification,
   OrchestratorResult,
   UserPreferences,
   ScoringContext,
-  ConfidenceAssessment,
-  AutomationAuditEntry
+  ConfidenceAssessment
 } from '../types';
 
 const logger = createLogger('EmailOrchestrator');
 
 export class EmailOrchestrator {
   private confidenceScorer: ConfidenceScorer;
-  // Other services will be injected
-  // private nlpClassifier: NLPIntentClassifier;
-  // private conversationManager: ConversationStateManager;
-  // private calendarService: CalendarService;
-  // private responseGenerator: ResponseGenerator;
-  // private auditLogger: AutomationAuditLogger;
+  private nlpClassifier: NLPIntentClassifier;
+  private conversationManager: ConversationStateManager;
+  private availabilityService: AvailabilityService;
+  private responseGenerator: ResponseGenerator;
+  private auditLogger: AutomationAuditLogger;
+  private preferencesManager: UserPreferencesManager;
+  private circuitBreaker: CircuitBreaker;
+  private gmailClient: GmailMCPClient;
+  private calendarMCP: GoogleCalendarMCP;
 
   constructor() {
+    // Initialize all services
     this.confidenceScorer = new ConfidenceScorer();
+    this.nlpClassifier = new NLPIntentClassifier();
+    this.conversationManager = new ConversationStateManager();
+    this.responseGenerator = new ResponseGenerator();
+    this.auditLogger = new AutomationAuditLogger();
+    this.preferencesManager = new UserPreferencesManager();
+    this.circuitBreaker = new CircuitBreaker();
+    this.gmailClient = new GmailMCPClient();
+    this.calendarMCP = new GoogleCalendarMCP();
+
+    // AvailabilityService needs dependencies
+    this.availabilityService = new AvailabilityService(
+      this.calendarMCP,
+      this.preferencesManager
+    );
   }
 
   /**
@@ -38,8 +64,15 @@ export class EmailOrchestrator {
     logger.info('Processing incoming email', { messageId, userId });
 
     try {
-      // Step 1: Classify intent using NLP
-      const classification = await this.classifyEmail(messageId);
+      // Step 1: Get email content from Gmail
+      const emailData = await this.gmailClient.getMessage(messageId);
+      const { subject, body, from, threadId } = this.parseEmailData(emailData);
+
+      // Step 2: Classify intent using NLP
+      const classification = await this.nlpClassifier.classify(body, subject);
+      classification.messageId = messageId;
+      classification.threadId = threadId;
+      classification.from = from;
 
       if (!classification.isSchedulingRequest) {
         logger.info('Email is not a scheduling request, ignoring', { messageId });
@@ -50,76 +83,98 @@ export class EmailOrchestrator {
         };
       }
 
-      // Step 2: Get or create conversation state
-      const conversation = await this.getOrCreateConversation(classification.threadId, userId);
+      // Step 3: Get or create conversation state
+      const conversation = await this.conversationManager.getOrCreate(threadId, userId);
 
-      // Step 3: Get user preferences
-      const userPreferences = await this.getUserPreferences(userId);
+      // Step 4: Get user preferences
+      const userPreferences = await this.preferencesManager.get(userId);
+
+      // Check if automation is enabled
+      if (!userPreferences.automationEnabled) {
+        logger.info('Automation disabled for user', { userId });
+        return {
+          action: 'pending_approval',
+          reason: 'Automation disabled',
+          confidence: classification.confidence
+        };
+      }
 
       // Check circuit breaker
-      const circuitBreakerOpen = await this.checkCircuitBreaker(userId);
+      const circuitBreakerOpen = await this.circuitBreaker.isOpen(userId);
       if (circuitBreakerOpen) {
         logger.warn('Circuit breaker is OPEN, escalating to user', { userId });
         return {
           action: 'pending_approval',
-          reason: 'Circuit breaker activated - too many low-confidence decisions',
+          reason: 'Circuit breaker activated',
           confidence: 0
         };
       }
 
-      // Step 4: Calculate confidence
+      // Step 5: Calculate confidence
       const confidence = await this.assessConfidence({
         classification,
         conversation,
         userPreferences,
-        senderHistory: await this.getSenderHistory(classification.from, userId)
+        senderHistory: await this.getSenderHistory(from, userId)
       });
 
       // Create availability request record
       const requestId = await this.createAvailabilityRequest(classification, userId);
 
-      // Store confidence assessment
+      // Store confidence assessment (link to request)
+      confidence.requestId = requestId;
       await this.storeConfidenceAssessment(requestId, confidence);
 
-      // Step 5: Make autonomous decision
-      const decision = await this.makeDecision(confidence, userPreferences);
+      // Update circuit breaker based on confidence
+      if (confidence.overallConfidence < userPreferences.confidenceThreshold) {
+        await this.circuitBreaker.recordLowConfidence(
+          userId,
+          userPreferences.circuitBreakerConfig.maxLowConfidence
+        );
+      } else {
+        await this.circuitBreaker.recordHighConfidence(userId);
+      }
 
-      if (decision.action === 'auto_respond') {
-        // Step 6: Get calendar availability
-        const availability = await this.checkCalendarAvailability(
+      // Step 6: Make autonomous decision
+      if (confidence.recommendation === 'auto_respond') {
+        // Step 7: Get calendar availability
+        const availability = await this.availabilityService.checkAvailability(
           userId,
           classification.proposedTimes
         );
 
-        // Step 7: Generate and send response
-        const response = await this.generateResponse(
-          classification,
+        // Step 8: Generate response
+        const response = await this.responseGenerator.generateAvailabilityResponse(
           availability,
-          conversation,
-          userPreferences
+          userPreferences,
+          this.extractName(from)
         );
 
-        const emailSent = await this.sendEmail(response, classification.threadId);
+        // Step 9: Send email via Gmail
+        await this.gmailClient.sendMessage({
+          to: [from],
+          subject: `Re: ${subject}`,
+          body: response.text,
+          threadId
+        });
 
-        // Step 8: Audit log
-        const auditId = await this.logAutonomousAction({
+        // Step 10: Audit log
+        const auditId = await this.auditLogger.log({
           userId,
           requestId,
+          conversationId: conversation.id,
           action: 'sent_email',
           confidenceScore: confidence.overallConfidence,
           decisionRationale: this.buildDecisionRationale(confidence),
-          emailSentId: emailSent.messageId,
+          emailSentId: messageId,
           calendarEventsConsidered: availability.conflicts,
-          conversationContext: conversation?.context || {},
-          userNotified: true
+          conversationContext: conversation.context
         });
 
-        // Step 9: Notify user
-        await this.notifyUser(userId, {
-          action: 'autonomous_email_sent',
-          auditId,
-          sender: classification.from,
-          summary: response.summary
+        // Step 11: Update conversation state
+        await this.conversationManager.transition(threadId, 'availability_sent', {
+          currentRequestId: requestId,
+          context: { lastResponse: response.summary }
         });
 
         logger.info('Email auto-responded successfully', {
@@ -135,36 +190,19 @@ export class EmailOrchestrator {
           auditId,
           emailSent: true
         };
-      } else if (decision.action === 'request_approval') {
+      } else {
         // Escalate to user for manual approval
         logger.info('Escalating to user for approval', {
           messageId,
           confidence: confidence.overallConfidence.toFixed(2)
         });
 
-        await this.notifyUser(userId, {
-          action: 'approval_required',
-          requestId,
-          sender: classification.from,
-          confidence: confidence.overallConfidence
-        });
-
         return {
           action: 'pending_approval',
           confidence: confidence.overallConfidence,
-          reason: 'Confidence below threshold, user approval required'
-        };
-      } else {
-        // Decline request
-        logger.info('Declining request', {
-          messageId,
-          confidence: confidence.overallConfidence.toFixed(2)
-        });
-
-        return {
-          action: 'declined',
-          confidence: confidence.overallConfidence,
-          reason: 'Confidence too low to process'
+          reason: confidence.recommendation === 'decline'
+            ? 'Confidence too low'
+            : 'User approval required'
         };
       }
     } catch (error: any) {
@@ -177,148 +215,164 @@ export class EmailOrchestrator {
     }
   }
 
-  private async classifyEmail(messageId: string): Promise<EmailClassification> {
-    // TODO: Implement NLP intent classification
-    // For now, return mock classification
-    logger.warn('Using mock email classification - NLP integration pending');
-    return {
-      isSchedulingRequest: true,
-      confidence: 0.9,
-      intent: 'schedule_meeting',
-      proposedTimes: [],
-      participants: [],
-      requestType: 'initial',
-      urgency: 'medium',
-      threadId: 'thread-' + messageId,
-      messageId,
-      from: 'sender@example.com',
-      subject: 'Meeting Request',
-      rawText: 'Mock email content'
-    };
+  /**
+   * Parse email data from Gmail MCP response
+   */
+  private parseEmailData(emailData: any): {
+    subject: string;
+    body: string;
+    from: string;
+    threadId: string;
+  } {
+    // Gmail MCP returns message in specific format
+    const payload = emailData.payload || {};
+    const headers = payload.headers || [];
+
+    const subject = headers.find((h: any) => h.name === 'Subject')?.value || '(no subject)';
+    const from = headers.find((h: any) => h.name === 'From')?.value || '';
+    const threadId = emailData.threadId || '';
+
+    // Extract body from parts
+    let body = '';
+    if (payload.parts) {
+      const textPart = payload.parts.find((p: any) => p.mimeType === 'text/plain');
+      if (textPart && textPart.body && textPart.body.data) {
+        body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+      }
+    } else if (payload.body && payload.body.data) {
+      body = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    }
+
+    return { subject, body, from, threadId };
   }
 
-  private async getOrCreateConversation(threadId: string, userId: string): Promise<any> {
-    // TODO: Implement conversation state manager
-    logger.warn('Mock conversation state - implementation pending');
-    return null;
-  }
+  /**
+   * Extract name from email address (simple extraction)
+   */
+  private extractName(email: string): string | undefined {
+    // Format: "John Doe <john@example.com>" or just "john@example.com"
+    const match = email.match(/^([^<]+)\s*</);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
 
-  private async getUserPreferences(userId: string): Promise<UserPreferences> {
-    // TODO: Implement user preferences retrieval
-    logger.warn('Using default user preferences - database integration pending');
-    return {
-      id: userId,
-      userId,
-      workingHoursStart: '09:00',
-      workingHoursEnd: '17:00',
-      bufferMinutes: 15,
-      defaultMeetingDuration: 30,
-      automationEnabled: true,
-      confidenceThreshold: 0.85,
-      vipWhitelist: [],
-      blacklist: [],
-      notificationChannels: { email: true, push: false, sms: false },
-      circuitBreakerConfig: { maxLowConfidence: 5, cooldownMinutes: 60 },
-      learningEnabled: true,
-      responseTone: 'professional',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
+    // Fallback: use part before @ and capitalize
+    const parts = email.split('@');
+    if (parts.length === 0 || !parts[0]) return undefined;
 
-  private async checkCircuitBreaker(userId: string): Promise<boolean> {
-    // TODO: Implement circuit breaker check
-    return false;
+    const username = parts[0];
+    return username
+      .split('.')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   }
 
   private async assessConfidence(context: ScoringContext): Promise<ConfidenceAssessment> {
     return this.confidenceScorer.assess(context);
   }
 
+  /**
+   * Get sender history from database
+   */
   private async getSenderHistory(email: string, userId: string): Promise<any> {
-    // TODO: Implement sender history lookup
+    const { query } = await import('../utils/database');
+
+    // Get total emails and scheduling requests from audit log
+    const result = await query(
+      `SELECT
+        COUNT(*) as total_emails,
+        COUNT(*) FILTER (WHERE action = 'sent_email') as scheduling_requests,
+        COUNT(*) FILTER (WHERE action = 'sent_email' AND user_override IS NULL) as successful_schedules,
+        MAX(created_at) as last_interaction
+       FROM automation_audit_log
+       WHERE user_id = $1 AND email_from = $2`,
+      [userId, email]
+    );
+
+    const stats = result.rows[0];
+    const totalEmails = parseInt(stats.total_emails) || 0;
+    const schedulingRequests = parseInt(stats.scheduling_requests) || 0;
+    const successfulSchedules = parseInt(stats.successful_schedules) || 0;
+
+    let trustLevel: 'vip' | 'trusted' | 'known' | 'unknown' = 'unknown';
+    if (totalEmails === 0) {
+      trustLevel = 'unknown';
+    } else if (schedulingRequests >= 3 && successfulSchedules >= 2) {
+      trustLevel = 'trusted';
+    } else if (totalEmails > 0) {
+      trustLevel = 'known';
+    }
+
     return {
       email,
-      totalEmails: 0,
-      schedulingRequests: 0,
-      successfulSchedules: 0,
-      trustLevel: 'unknown'
+      totalEmails,
+      schedulingRequests,
+      successfulSchedules,
+      lastInteraction: stats.last_interaction,
+      trustLevel
     };
   }
 
+  /**
+   * Create availability request in database
+   */
   private async createAvailabilityRequest(
     classification: EmailClassification,
     userId: string
   ): Promise<string> {
-    // TODO: Implement database insert
-    logger.warn('Mock availability request creation - database integration pending');
-    return 'req-' + Date.now();
+    const { query } = await import('../utils/database');
+
+    const result = await query(
+      `INSERT INTO availability_requests
+       (user_id, requester_email, subject, request_type, urgency, raw_email_text, proposed_times, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+       RETURNING id`,
+      [
+        userId,
+        classification.from,
+        classification.subject,
+        classification.requestType,
+        classification.urgency,
+        classification.rawText,
+        JSON.stringify(classification.proposedTimes)
+      ]
+    );
+
+    return result.rows[0].id;
   }
 
+  /**
+   * Store confidence assessment in database
+   */
   private async storeConfidenceAssessment(
     requestId: string,
     confidence: ConfidenceAssessment
   ): Promise<void> {
-    // TODO: Implement database insert
-    logger.info('Storing confidence assessment', {
+    const { query } = await import('../utils/database');
+
+    await query(
+      `INSERT INTO confidence_assessments
+       (request_id, overall_confidence, intent_confidence, time_parsing_confidence,
+        sender_trust_score, conversation_clarity, factors, recommendation)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        requestId,
+        confidence.overallConfidence,
+        confidence.intentConfidence,
+        confidence.timeParsingConfidence,
+        confidence.senderTrustScore,
+        confidence.conversationClarity,
+        JSON.stringify(confidence.factors),
+        confidence.recommendation
+      ]
+    );
+
+    logger.info('Confidence assessment stored', {
       requestId,
-      confidence: confidence.overallConfidence
+      confidence: confidence.overallConfidence.toFixed(2)
     });
   }
 
-  private async makeDecision(
-    confidence: ConfidenceAssessment,
-    userPreferences: UserPreferences
-  ): Promise<{ action: 'auto_respond' | 'request_approval' | 'decline' }> {
-    return { action: confidence.recommendation === 'auto_respond' ? 'auto_respond' : 'request_approval' };
-  }
-
-  private async checkCalendarAvailability(userId: string, proposedTimes: any[]): Promise<any> {
-    // TODO: Implement calendar service integration
-    logger.warn('Mock calendar availability check - integration pending');
-    return {
-      requested: proposedTimes,
-      available: proposedTimes,
-      conflicts: [],
-      suggested: proposedTimes,
-      hasConflicts: false
-    };
-  }
-
-  private async generateResponse(
-    classification: EmailClassification,
-    availability: any,
-    conversation: any,
-    userPreferences: UserPreferences
-  ): Promise<any> {
-    // TODO: Implement response generator
-    logger.warn('Mock response generation - implementation pending');
-    return {
-      text: 'I am available at the proposed times.',
-      html: '<p>I am available at the proposed times.</p>',
-      summary: 'Confirmed availability'
-    };
-  }
-
-  private async sendEmail(response: any, threadId: string): Promise<any> {
-    // TODO: Implement Gmail MCP integration
-    logger.warn('Mock email sending - Gmail MCP integration pending');
-    return {
-      messageId: 'msg-' + Date.now(),
-      sent: true
-    };
-  }
-
-  private async logAutonomousAction(entry: Partial<AutomationAuditEntry>): Promise<string> {
-    // TODO: Implement audit logger
-    logger.info('Logging autonomous action', entry);
-    return 'audit-' + Date.now();
-  }
-
-  private async notifyUser(userId: string, notification: any): Promise<void> {
-    // TODO: Implement user notification
-    logger.info('Notifying user', { userId, notification });
-  }
 
   private buildDecisionRationale(confidence: ConfidenceAssessment): string {
     const parts = [];
