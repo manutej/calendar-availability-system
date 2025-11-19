@@ -74,33 +74,55 @@ calendar-availability-system/
 
 ## 🚀 Getting Started
 
+**Choose your setup method:**
+
+### Option 1: Automated Setup (Recommended) ⚡
+```bash
+# Run automated setup script (handles everything)
+./scripts/setup.sh
+```
+Then edit `.env` with your Google OAuth credentials and run `npm run dev`
+
+### Option 2: Manual Step-by-Step Setup
+See **[SETUP.md](./SETUP.md)** for complete 60-minute walkthrough with error-proof instructions.
+
+### Option 3: Quick Reference
+See **[QUICK-START.md](./QUICK-START.md)** for minimal configuration and troubleshooting.
+
+---
+
 ### Prerequisites
 
-- Node.js 18+ and npm/pnpm
-- PostgreSQL 15+
-- Google Cloud project with Calendar & Gmail API access
-- MCP servers: `@modelcontextprotocol/server-google-calendar`, `@modelcontextprotocol/server-gmail`
+- **Node.js 18+** - `node --version`
+- **PostgreSQL 14+** - `psql --version`
+- **Google Cloud account** (free tier works)
+- **30-60 minutes** for full setup
 
-### Development Setup
+### What You'll Need
+
+1. **Google OAuth Credentials**:
+   - Client ID + Client Secret from Google Cloud Console
+   - Gmail API + Calendar API enabled
+   - See [SETUP.md Step 4](./SETUP.md#step-4-google-cloud-setup-15-min)
+
+2. **MCP Servers** (auto-installed by setup script):
+   - Gmail MCP Server: `devdattatalele/gmail-mcp-server`
+   - Calendar MCP Server: `guinacio/mcp-google-calendar`
+
+3. **Environment Variables**:
+   - Copy `.env.example` to `.env`
+   - Fill in database credentials and Google OAuth details
+
+### Verify Installation
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd calendar-availability-system
-
-# Install dependencies (once implemented)
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your credentials
-
-# Initialize database
-npm run db:init
-
-# Run development server
-npm run dev
+npm run build  # TypeScript compilation
+npm test       # Run 17 unit tests
+npm run dev    # Start development server
+curl http://localhost:3000/health  # Health check
 ```
+
+**All setup guides include troubleshooting sections for common issues.**
 
 ---
 
