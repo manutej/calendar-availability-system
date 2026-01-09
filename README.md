@@ -63,9 +63,15 @@ calendar-availability-system/
 │   ├── skills/                  # Project-specific skills
 │   ├── agents/                  # Development agents
 │   └── commands/                # Slash commands
+├── docs/                        # Documentation
+│   ├── DEPLOYMENT.md            # Server deployment guide
+│   ├── guides/                  # User guides
+│   │   └── QUICK-START.md       # Fast reference guide
+│   └── internal/                # Internal documentation
+│       ├── HANDOFF.md           # Developer onboarding
+│       └── PROJECT-SUMMARY.md   # Executive summary
 ├── src/                         # Source code (to be implemented)
 ├── tests/                       # Test suites
-├── docs/                        # Additional documentation
 ├── logs/                        # Operational logs
 └── README.md                    # This file
 ```
@@ -260,12 +266,12 @@ This project follows **constitutional specification-driven development**:
 
 **Repository**: https://github.com/manutej/calendar-availability-system
 
-**Next Step**: Follow `DEPLOYMENT.md` for server setup, then begin Phase 1 implementation
+**Next Step**: Follow `docs/DEPLOYMENT.md` for server setup, then begin Phase 1 implementation
 
 **Multi-Agent Analysis**: Specifications refined through Sequential Thinking + MERCURIO + MARS synthesis (see `.specify/TRANSFORMATION-SUMMARY.md`)
 
 For complete handoff details, see:
-- `DEPLOYMENT.md` - Server deployment guide
-- `docs/HANDOFF.md` - Developer onboarding (18 KB)
-- `QUICK-START.md` - Fast reference guide
+- `docs/DEPLOYMENT.md` - Server deployment guide
+- `docs/internal/HANDOFF.md` - Developer onboarding (18 KB)
+- `docs/guides/QUICK-START.md` - Fast reference guide
 - `.specify/TRANSFORMATION-SUMMARY.md` - Complete analysis (20K words)
